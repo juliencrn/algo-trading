@@ -1,0 +1,16 @@
+//@version=4
+strategy("Simple short term RSI")
+
+// ⚠️ Un-finished script
+// It was a try from "algo trading" book chap. 5
+
+// Whem the 2 bar RSI goes below a certain value, 
+// it is a good time to buy.
+
+rsi2 = rsi(close, 2)
+rsi14 = rsi(close, 14)
+
+strategy.entry("long", strategy.long, 100, when = rsi2 > 50)
+
+plot(rsi2, color=color.orange)
+plot(rsi14, color=color.green)

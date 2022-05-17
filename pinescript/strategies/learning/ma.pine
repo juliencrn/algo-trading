@@ -1,0 +1,48 @@
+//@version=5
+strategy("Moving average strategy", overlay = true)
+
+large_len = input(50)
+short_len = input(20)
+
+large_sma = ta.sma(close, large_len)
+short_ema = ta.ema(close, short_len)
+
+///
+
+long_condition = short_ema > large_sma
+short_condition = short_ema < large_sma
+
+if (long_condition)
+    strategy.entry("long", strategy.long)
+
+if (short_condition)
+    strategy.entry("short", strategy.short)
+
+plot(large_sma, color = color.new(color.yellow, 0), linewidth = 3)
+plot(short_ema, color = color.new(color.blue, 0), linewidth = 1)
+
+bgcolor(long_condition ? color.green : na)
+bgcolor(short_condition ? color.red : na)
+
+///
+
+long_entry_condition = (close < short_ema) and (short_ema > large_sma)
+long_close_condition = ta.crossunder(short_ema, large_sma)
+
+short_entry_condition = (close > short_ema) and (short_ema < large_sma)
+short_close_condition = ta.crossover(short_ema, large_sma)
+
+strategy.entry("long", strategy.long, 1, when = long_entry_condition)
+strategy.close("long",  when = long_close_condition) 
+
+strategy.entry("short", strategy.short, 1, when = short_entry_condition)
+strategy.close("short",  when = short_close_condition) 
+
+plot(large_sma, color = color.new(color.yellow, 0), linewidth = 3)
+plot(short_ema, color = color.new(color.blue, 0), linewidth = 1)
+
+bgcolor(long_entry_condition ? color.green : na)
+bgcolor(short_entry_condition ? color.red : na)
+
+bgcolor(long_close_condition ? color.purple : na)
+bgcolor(short_close_condition ? color.purple : na)

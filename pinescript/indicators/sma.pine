@@ -1,0 +1,9 @@
+//@version=5
+
+indicator(shorttitle="SMA", title="Simple Moving Average", overlay=true, timeframe="", timeframe_gaps=true)
+
+shortSMA = ta.sma(close, 20)
+longSMA = ta.sma(close, 50)
+
+plot(shortSMA, "shortSMA", color=color.orange)
+plot(longSMA, "longSMA", color=color.blue)

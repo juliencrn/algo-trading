@@ -1,0 +1,39 @@
+//@version=5
+
+strategy(title="Relative Volatility Index", shorttitle="RVI")
+
+// RVI
+length = input.int(10, minval=1), src = close
+len = 14
+stddev = ta.stdev(src, length)
+
+upper = ta.ema(ta.change(src) <= 0 ? 0 : stddev, len)
+lower = ta.ema(ta.change(src) > 0 ? 0 : stddev, len)
+
+rvi = upper / (upper + lower) * 100
+
+h0 = hline(80, "Upper Band", color=#787B86)
+h1 = hline(20, "Lower Band", color=#787B86)
+
+offset = input.int(0, "Offset", minval = -500, maxval = 500)
+// plot(rvi, title="RVI", color=#7E57C2, offset = offset)
+
+// BB
+length_bb = input.int(20, minval=1)
+mult = input.float(2.0, minval=0.001, maxval=50, title="StdDev")
+basis = ta.sma(src, length_bb)
+dev = mult * ta.stdev(src, length_bb)
+upper_bb = basis + dev
+lower_bb = basis - dev
+plot(basis, "Basis", color=#FF6D00, offset = offset)
+p1 = plot(upper_bb, "Upper_bb", color=#2962FF, offset = offset)
+p2 = plot(lower_bb, "Lower_bb", color=#2962FF, offset = offset)
+fill(p1, p2, title = "Background", color=color.rgb(33, 150, 243, 95))
+
+lower_25 = ((basis - lower_bb) / 2) + lower
+upper_25 = ((upper - basis) / 2) + basis
+
+if (rvi < 35 and src < lower_25)
+	strategy.entry("long", strategy.long, comment="")
+if (rvi > 55 and src > upper_25)
+	strategy.entry("short", strategy.short, comment="")

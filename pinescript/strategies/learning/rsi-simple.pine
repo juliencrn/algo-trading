@@ -1,0 +1,14 @@
+//@version=5
+strategy("RSI Strategy", overlay=true)
+
+length = input(75)
+overSold = input(45)
+overBought = input(55)
+
+rsi = ta.rsi(close, length)
+
+if (ta.crossover(rsi, overBought)) 
+    strategy.entry("rsi-LE", strategy.long, comment="rsi-LE")
+
+if (ta.crossunder(rsi, overSold)) 
+    strategy.entry("rsi-SE", strategy.short, comment="rsi-SE")

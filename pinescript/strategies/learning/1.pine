@@ -1,0 +1,59 @@
+//@version=5
+strategy("My strategy")
+
+// Notes perf on default settings, BTCUSD Daily
+// long/short only on cross(macd delta, 0) => 40_137
+// long/short on cross(macd delta, 0) + 5% stoploss => 60_624
+// Note: Validating signals using RSI (do not long if rsi is high) or
+// using the CCI (Don't trade during range) decrise the results
+
+// Getting user's inputs
+signal_length = input(9)
+fast_length = input(12)
+slow_length = input(26)
+rsi_lenght = input(14)
+cci_lenght = input(20)
+stop_loss_perc = input.float(title="Stop loss (%)", minval=0, step=1, defval=8) / 100
+
+// Get technical indicators
+[macd, macd_signal, macd_delta] = ta.macd(close, 12, 26, 9)
+rsi = ta.rsi(close, rsi_lenght)
+cci = ta.cci(close, cci_lenght)
+plot(cci, color = color.purple)
+
+// Prepare the strategy
+long_signal = ta.crossover(macd_delta, 0)
+short_signal = ta.crossunder(macd_delta, 0)
+
+// Implement strategy
+// strategy.entry(id, direction, qty, limit, stop, oca_name, oca_type, comment, when, alert_message)
+// strategy.exit(id, from_entry, qty, qty_percent, profit, limit, loss, stop, trail_price, 
+//                 trail_points, trail_offset, oca_name, comment, when, alert_message) 
+// strategy.order(id, direction, qty, limit, stop, oca_name, oca_type, comment, when, alert_message)
+
+// entries
+// if (long_signal and rsi < 50)
+if (long_signal)
+    strategy.entry("long", strategy.long)
+
+// if (short_signal and rsi > 50)
+if (short_signal)
+    strategy.entry("short", strategy.short)
+
+// Determine stop loss price
+long_stop_price  = strategy.position_avg_price * (1 - stop_loss_perc)
+short_stop_price = strategy.position_avg_price * (1 + stop_loss_perc)
+
+// Submit exit orders based on calculated stop loss price
+if (strategy.position_size > 0)
+    strategy.exit(id="XL SL", stop=long_stop_price)
+
+if (strategy.position_size < 0)
+    strategy.exit(id="XS SL", stop=short_stop_price)
+
+// if (ta.crossover(delta, 0))
+// 	strategy.entry("MacdLE", strategy.long, comment="MacdLE")
+// if (ta.crossunder(delta, 0))
+// 	strategy.entry("MacdSE", strategy.short, comment="MacdSE")
+    
+//plot(strategy.equity, title="equity", color=color.red, linewidth=2, style=plot.style_areabr)

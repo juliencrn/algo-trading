@@ -1,0 +1,24 @@
+//@version=5
+indicator(title="Moving Average Exponential", shorttitle="EMA", overlay=true, timeframe="", timeframe_gaps=true)
+
+offset = input.int(title="Offset", defval=0, minval=-500, maxval=500)
+
+fast_ema = ta.ema(close, 12)
+slow_ema = ta.ema(close, 26)
+
+// macd = fast_ema - slow_ema
+// signal = ta.ema(macd, 9)
+// hist = macd - signal
+
+ema50 = ta.ema(close, 50)
+ema100 = ta.ema(close, 100)
+ema150 = ta.ema(close, 150)
+ema200 = ta.ema(close, 200)
+
+plot(fast_ema, title="MACD", color=color.orange, offset=offset)
+plot(slow_ema, title="MACD", color=color.purple, offset=offset)
+
+plot(ema50, title="EMA 50", color=color.red, offset=offset)
+plot(ema100, title="EMA 100", color=color.yellow, offset=offset)
+plot(ema150, title="EMA 150", color=color.blue, offset=offset)
+plot(ema200, title="EMA 200", color=color.navy, offset=offset)
