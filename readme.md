@@ -1,8 +1,10 @@
 # Algo Trading
 
-Little data-science repository to discover algorithmic trading using Python
+Discover both data analysis and algorithmic trading strategies
 
 ## Install
+
+Require Python 3
 
 ```sh
 pip install -r requirements.txt
