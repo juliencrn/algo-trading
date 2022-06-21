@@ -1,4 +1,10 @@
 {
     "python.analysis.typeCheckingMode": "basic",
-    "python.analysis.extraPaths": ["utils"],
+    "python.analysis.extraPaths": [
+      "utils"
+    ],
+    "cSpell.words": [
+      "datalab",
+      "pyalgo"
+    ],
   }
