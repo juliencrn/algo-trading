@@ -1,3 +1,13 @@
+# upgrade pip before installing
+# pip install --upgrade pip
+
+# Note to install pytables: 
+# 1. install deps
+# brew install hdf5 c-blosc lzo bzip2
+# 2. install pytables
+# tstables isn't maintened now, this fork is made to work, but it's a tmp hack
+# pip install git+https://github.com/yhilpisch/tstables.git
+
 ipynb==0.5.1
 requests==2.27.1
 ta==0.10.1
@@ -5,3 +15,24 @@ yfinance==0.1.70
 pandas-ta==0.3.14b
 # ta-lib==0.4.24
 mplfinance==0.12.9b0
+
+jupyter  # interactive data analytics in the browser
+jupyterlab  # Jupyter Lab environment
+numpy  #  numerical computing package
+# pytables  # wrapper for HDF5 binary storage
+pandas  #  data analysis package
+matplotlib  # standard plotting library
+seaborn  # statistical plotting library
+quandl  # wrapper for Quandl data API
+scikit-learn  # machine learning library
+openpyxl  # package for Excel interaction
+xlrd 
+xlwt  # packages for Excel interaction
+pyyaml  # package to manage yaml files
+q  # logging and debugging
+plotly  # interactive D3.js plots
+cufflinks  # combining plotly with pandas
+# tensorflow  # deep learning library
+# keras  # deep learning library
+eikon # Python wrapper for the Refinitiv Eikon Data API
+tstables
