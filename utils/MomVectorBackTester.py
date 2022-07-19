@@ -7,6 +7,7 @@
 # (c) Dr. Yves J. Hilpisch
 # The Python Quants GmbH
 #
+import os
 import numpy as np
 import pandas as pd
 
@@ -50,8 +51,8 @@ class MomVectorBackTester(object):
     def get_data(self):
         ''' Retrieves and prepares the data.
         '''
-        raw = pd.read_csv('../input/pyalgo_eikon_eod_data.csv',
-                          index_col=0, parse_dates=True).dropna()
+        data_path = "{}/input/pyalgo_eikon_eod_data.csv".format(os.getcwd())
+        raw = pd.read_csv(data_path, index_col=0, parse_dates=True).dropna()
         raw = pd.DataFrame(raw[self.symbol])
         raw = raw.loc[self.start:self.end]
         raw.rename(columns={self.symbol: 'price'}, inplace=True)
