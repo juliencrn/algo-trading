@@ -31,8 +31,14 @@ xlwt  # packages for Excel interaction
 pyyaml  # package to manage yaml files
 q  # logging and debugging
 plotly  # interactive D3.js plots
+ipywidgets
 cufflinks  # combining plotly with pandas
 # tensorflow  # deep learning library
 # keras  # deep learning library
 eikon # Python wrapper for the Refinitiv Eikon Data API
 tstables
+
+# install jupyter lab extensions
+# jupyter labextension install jupyterlab-plotly
+# jupyter labextension install @jupyter-widgets/jupyterlab-manager
+# jupyter labextension install plotlywidget
