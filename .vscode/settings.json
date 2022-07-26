@@ -8,6 +8,7 @@
       "Hilpisch",
       "iloc",
       "jupyterlab",
+      "klines",
       "pyalgo",
       "scipy"
     ],
