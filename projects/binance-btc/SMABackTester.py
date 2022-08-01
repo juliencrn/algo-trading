@@ -40,6 +40,8 @@ class SMABackTester(object):
 
     def run_strategy(self):
         data = self.raw.copy()
+        data['return'] = np.log(data['price'] / data['price'].shift(1))
+        data.dropna(inplace=True)
         data['SMA1'] = data['price'].rolling(self.SMA1).mean()
         data['SMA2'] = data['price'].rolling(self.SMA2).mean()
         data['position'] = np.where(data['SMA1'] > data['SMA2'], 1, -1)
