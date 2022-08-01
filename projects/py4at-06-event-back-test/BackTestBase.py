@@ -70,7 +70,7 @@ class BackTestBase(object):
     def get_data(self):
         ''' Retrieves and prepares the data.
         '''
-        data_path = "{}/input/pyalgo_eikon_eod_data.csv".format(os.getcwd())
+        data_path = "pyalgo_eikon_eod_data.csv"
         raw = pd.read_csv(data_path, index_col=0, parse_dates=True).dropna()
         raw = pd.DataFrame(raw[self.symbol])
         raw = raw.loc[self.start:self.end]
