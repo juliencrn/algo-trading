@@ -56,7 +56,7 @@ class SMAVectorBackTester(object):
     def get_data(self):
         ''' Retrieves and prepares the data.
         '''
-        raw = pd.read_csv('../input/pyalgo_eikon_eod_data.csv',
+        raw = pd.read_csv('pyalgo_eikon_eod_data.csv',
                           index_col=0, parse_dates=True).dropna()
         raw = pd.DataFrame(raw[self.symbol])
         raw = raw.loc[self.start:self.end]
