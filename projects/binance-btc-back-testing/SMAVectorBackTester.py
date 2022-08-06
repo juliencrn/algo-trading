@@ -9,41 +9,32 @@
 #
 import numpy as np
 import pandas as pd
+from pylab import mpl, plt
+plt.style.use('seaborn')
+mpl.rcParams['font.family'] = 'serif'
 
 
-API_URL = 'https://api.binance.com/api/v3'
-
-
-class SMABackTester(object):
+class SMAVectorBackTester(object):
     def __init__(self, initial_data: pd.DataFrame, sma1: int = 10, sma2: int = 26, verbose=True):
         """
         Parameters:
         ===========
         initial_data: pd.DataFrame
-            index: Datetime, price: float, return: float
+            index: Datetime, price: float
         """
         self.results = None
         self.benchmark = None
-        self.update_parameters((sma1, sma2))
+        self.sma1 = sma1
+        self.sma2 = sma2
         self.raw = initial_data.copy().dropna()
         self.verbose = verbose
-
-    def update_parameters(self, SMA: tuple):
-        """
-        Parameters:
-        ===========
-        SMA: tuple
-            tuple of the form (sma1, sma2)
-        """
-        self.SMA1 = SMA[0]
-        self.SMA2 = SMA[1]
 
     def run_strategy(self):
         data = self.raw.copy()
         data['return'] = np.log(data['price'] / data['price'].shift(1))
         data.dropna(inplace=True)
-        data['SMA1'] = data['price'].rolling(self.SMA1).mean()
-        data['SMA2'] = data['price'].rolling(self.SMA2).mean()
+        data['SMA1'] = data['price'].rolling(self.sma1).mean()
+        data['SMA2'] = data['price'].rolling(self.sma2).mean()
         data['position'] = np.where(data['SMA1'] > data['SMA2'], 1, -1)
         data['strategy'] = data['position'].shift(1) * data['return']
         data.dropna(inplace=True)
@@ -92,7 +83,8 @@ class SMABackTester(object):
                 if sma1 >= sma2:
                     continue
 
-                self.update_parameters((sma1, sma2))
+                self.sma1 = sma1
+                self.sma2 = sma2
                 (perf, rel_perf) = self.run_strategy()
 
                 raw.append({
@@ -117,7 +109,7 @@ if __name__ == '__main__':
 
     print(raw.head())
 
-    sma_bt = SMABackTester(raw, verbose=False)
+    sma_bt = SMAVectorBackTester(raw, verbose=False)
     (sma, perf) = sma_bt.optimize_parameters((6, 51, 2), (20, 201, 10))
 
     print(sma)
