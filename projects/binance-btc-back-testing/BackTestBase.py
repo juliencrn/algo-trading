@@ -62,6 +62,7 @@ class BackTestBase(object):
         # file should have a Date:datetime and price:float
         self.data_file = "./BTCUSDT-1m.csv"
         self.get_data()
+        self.result = None
 
     def get_data(self):
         ''' Retrieves and prepares the data.
@@ -145,7 +146,7 @@ class BackTestBase(object):
     def get_gross_rate(self, initial: int, final: int) -> float:
         return (final - initial) / initial
 
-    def print_strategy_resume(self, bar):
+    def print_strategy_resume(self):
         ''' Print final balance, performance and others metrics
 
         Note: Should be called after close_out()
