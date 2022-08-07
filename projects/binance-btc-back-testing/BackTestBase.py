@@ -26,6 +26,12 @@ class BackTestBase(object):
         fixed transaction costs per trade (buy or sell)
     ptc: float
         proportional transaction costs per trade (buy or sell)
+    data: DateFrame
+        contains input DataFrame
+    result: DateFrame
+        result is made by running the strategy
+    statistics: DateFrame
+        statistics is made after strategy
 
     Methods
     =======
@@ -55,17 +61,9 @@ class BackTestBase(object):
         self.amount = amount
         self.ftc = ftc
         self.ptc = ptc
-        self.units = 0
-        self.position = 0
-        self.trades = 0
         self.verbose = verbose
-
-        # self.data contains input DataFrame
-        # self.result is made by running the strategy
-        # self.statistics is made after strategy
-        self.data = self.get_data()
-        self.result = None
-        self.statistics = None
+        self.reset_strategy()
+        self.get_data()
 
     def get_data(self, csv_file="./BTCUSDT-1m.csv"):
         ''' Retrieves and prepares the data.
@@ -77,10 +75,11 @@ class BackTestBase(object):
         raw = pd.read_csv(csv_file, index_col=0, parse_dates=True).dropna()
         raw = raw.loc[(raw.index > self.start) & (raw.index < self.end)]
         raw['return'] = np.log(raw / raw.shift(1))
-        return raw.dropna()
+        self.data = raw.dropna()
 
     def reset_strategy(self):
         ''' Set defaults to be able to re-run a new strategy with clean input '''
+        self.units = 0
         self.position = 0  # initial neutral position
         self.trades = 0  # no trades yet
         self.amount = self.initial_amount  # reset initial capital
@@ -107,12 +106,15 @@ class BackTestBase(object):
             print('No statistics to plot yet. Run a strategy.')
         else:
             cols = ['cum_returns', 'cum_strategy', 'cum_max']
-            where = self.statistics['position'] > 0
+            is_long = self.statistics['position'] > 0
+            is_short = self.statistics['position'] < 0
             min_val = self.statistics[cols].min().min()
             max_val = self.statistics[cols].max().max()
             self.statistics[cols].plot(figsize=(10, 6))
             plt.fill_between(x=self.statistics.index, y1=max_val,
-                             y2=min_val, where=where, color="green", alpha=0.1)
+                             y2=min_val, where=is_long, color="green", alpha=0.1)
+            plt.fill_between(x=self.statistics.index, y1=max_val,
+                             y2=min_val, where=is_short, color="red", alpha=0.1)
             plt.show()
 
     def calculate_statistics(self):
@@ -206,6 +208,7 @@ class BackTestBase(object):
         sym_perf = self.get_gross_rate(sym.iloc[0], sym.iloc[-1]) * 100
         vs_sym_perf = perf - sym_perf
 
+        print('Initial balance [$] {:.2f}'.format(self.initial_amount))
         print('Final balance   [$] {:.2f}'.format(self.amount))
         print('Net Performance [%] {:.2f}'.format(perf))
         print('Sym Performance [%] {:.2f}'.format(sym_perf))
