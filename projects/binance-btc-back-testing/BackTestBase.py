@@ -59,22 +59,36 @@ class BackTestBase(object):
         self.position = 0
         self.trades = 0
         self.verbose = verbose
-        # file should have a Date:datetime and price:float
-        self.data_file = "./BTCUSDT-1m.csv"
-        self.get_data()
-        self.result = None
 
-    def get_data(self):
+        # self.data contains input DataFrame
+        # self.result is made by running the strategy
+        # self.statistics is made after strategy
+        self.data = self.get_data()
+        self.result = None
+        self.statistics = None
+
+    def get_data(self, csv_file="./BTCUSDT-1m.csv"):
         ''' Retrieves and prepares the data.
+
+        Arguments:
+        - file: str
+            path to csv file containing Date:datetime and price:float
         '''
-        file = self.data_file
-        raw = pd.read_csv(file, index_col=0, parse_dates=True).dropna()
+        raw = pd.read_csv(csv_file, index_col=0, parse_dates=True).dropna()
         raw = raw.loc[(raw.index > self.start) & (raw.index < self.end)]
         raw['return'] = np.log(raw / raw.shift(1))
-        self.data = raw.dropna()
+        return raw.dropna()
+
+    def reset_strategy(self):
+        ''' Set defaults to be able to re-run a new strategy with clean input '''
+        self.position = 0  # initial neutral position
+        self.trades = 0  # no trades yet
+        self.amount = self.initial_amount  # reset initial capital
+        self.result = None
+        self.statistics = None
 
     def plot_data(self, cols=None, data=None, title=None, figsize=None):
-        ''' Plots the closing prices for symbol.
+        ''' Generalist plotting function
         '''
         if cols is None:
             cols = ['price']
@@ -83,6 +97,41 @@ class BackTestBase(object):
         if figsize is None:
             figsize = (10, 6)
         data[cols].plot(figsize=figsize, title=title)
+
+    def plot_strategy(self):
+        ''' Draw an advanced strategy chart
+
+        Requires that self.results contains ['cum_returns', 'cum_strategy', 'cum_max'] cols
+        '''
+        if self.statistics is None:
+            print('No statistics to plot yet. Run a strategy.')
+        else:
+            cols = ['cum_returns', 'cum_strategy', 'cum_max']
+            where = self.statistics['position'] > 0
+            min_val = self.statistics[cols].min().min()
+            max_val = self.statistics[cols].max().max()
+            self.statistics[cols].plot(figsize=(10, 6))
+            plt.fill_between(x=self.statistics.index, y1=max_val,
+                             y2=min_val, where=where, color="green", alpha=0.1)
+            plt.show()
+
+    def calculate_statistics(self):
+        ''' From self.result to self.statistics, calculate strategy statistics'''
+        if self.result is None:
+            print('No result to plot yet. Run a strategy.')
+        else:
+            raw = self.result.copy()
+
+            # cumulative real performance
+            raw['strategy'] = np.log(
+                raw['valuation'] / raw['valuation'].shift(1))
+            raw['cum_returns'] = raw['return'].cumsum().apply(np.exp)
+            raw['cum_strategy'] = raw['strategy'].cumsum().apply(np.exp)
+            # used to calc drawdown later
+            raw['cum_max'] = raw['cum_strategy'].cummax()
+            raw['drawdown'] = raw['cum_max'] - raw['cum_strategy']
+
+            self.statistics = raw
 
     def get_date_price(self, bar: int):
         ''' Return date and price for bar.
@@ -150,6 +199,7 @@ class BackTestBase(object):
         ''' Print final balance, performance and others metrics
 
         Note: Should be called after close_out()
+        TODO: add `bar` parameter to show the current strategy resume in real-time
         '''
         perf = self.get_gross_rate(self.initial_amount, self.amount) * 100
         sym = self.data['price']
@@ -161,6 +211,18 @@ class BackTestBase(object):
         print('Sym Performance [%] {:.2f}'.format(sym_perf))
         print('VS Sym Perform. [%] {:.2f}'.format(vs_sym_perf))
         print('Trades Executed [#] {}'.format(self.trades))
+
+        if self.statistics is not None:
+            # max and longest drawdown
+            # when drawdown == 0, we are at the top
+            tmp = self.statistics['drawdown'][self.statistics['drawdown'] == 0]
+            drawdown_periods = (
+                tmp.index[1:].to_pydatetime() - tmp.index[:-1].to_pydatetime())
+
+            print('Max drawdown     [%] {:.2f}'.format(
+                round(self.statistics['drawdown'].max() * 100, 2)))
+            print('Longest drawdown [t] {}'.format(drawdown_periods.max()))
+
         print('=' * 55)
 
 
