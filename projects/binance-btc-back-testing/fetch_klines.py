@@ -129,16 +129,24 @@ if __name__ == '__main__':
     # datetime(year, month, day, hour, minute, second, microsecond)
     # start = pd.to_datetime(datetime(2022, 6, 1, 0, 0, 0))
     # end = pd.to_datetime(datetime(2022, 6, 10, 23, 59, 59))
-
-    start = datetime(2022, 6, 1, 0, 0, 0)
-    end = datetime(2022, 6, 2, 23, 59, 59)
+    year = 2022
+    start = datetime(year, 1, 1, 0, 0, 0)
+    # end = datetime(year, 12, 31, 23, 59, 59)
+    end = datetime.now()
     symbol = "BTCUSDT"
     interval = "1m"
 
     bk = BinanceKlines(symbol, interval, verbose=True)
     df = bk.paginate_fetch(start, end)
 
-    print(df)
-
     # warning: this erase the prev .csv file without asking
-    # df.to_csv(f"{symbol}-{interval}.csv")
+    # df.to_csv(f"{symbol}-{interval}-{year}.csv")
+
+    # merge files into one big
+    # df_2020 = pd.read_csv(f"{symbol}-{interval}-2020.csv", parse_dates=True, index_col=0)
+    # df_2021 = pd.read_csv(f"{symbol}-{interval}-2021.csv", parse_dates=True, index_col=0)
+    # df_2022 = pd.read_csv(f"{symbol}-{interval}-2022.csv", parse_dates=True, index_col=0)
+
+    # df = pd.concat([df_2020, df_2021, df_2022])
+
+    # df.to_csv(f"{symbol}-{interval}-2020-01-01_2022-08-11.csv")

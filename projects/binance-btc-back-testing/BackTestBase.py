@@ -65,7 +65,7 @@ class BackTestBase(object):
         self.reset_strategy()
         self.get_data()
 
-    def get_data(self, csv_file="./BTCUSDT-1m.csv"):
+    def get_data(self, csv_file="./BTCUSDT-1m-2020-01-01_2022-08-11.csv"):
         ''' Retrieves and prepares the data.
 
         Arguments:
