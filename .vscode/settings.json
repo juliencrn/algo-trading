@@ -4,6 +4,8 @@
       "utils"
     ],
     "cSpell.words": [
+      "cummax",
+      "cumsum",
       "datalab",
       "Hilpisch",
       "iloc",
