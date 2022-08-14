@@ -1,8 +1,10 @@
+from posixpath import dirname
 import pandas as pd
 import numpy as np
 import datetime as dt
 import websocket
 import zmq
+import time
 import math
 import json
 from utils import get_gross_rate
@@ -10,42 +12,34 @@ from BinanceClient import BinanceClient
 
 
 class OnlineTradingBot(object):
-
     def __init__(self, budget: int = 1_000, reserve: int = 50, momentum: int = 1, testnet=True, verbose=True):
         self.data = pd.DataFrame()
         self.momentum = momentum
         self.reserve = reserve
         self.position: int = 0
-        self.min_length = momentum + 1
         self.trade_count = 0
-        self.testnet = testnet
         self.verbose = verbose
         self.WS_URL = 'wss://stream.binance.us:9443/ws/btcusdt@kline_1m'
         self.client = BinanceClient("BTCUSDT", testnet=testnet)
+        self.init_trading_balance(budget)
+        self.open_logs_file()
+        self.open_logs_ws_connection()
+        if self.verbose:
+            print(f"Bot initialized with {budget} USDT")
 
-        # even if we have S1M usdt, we want to trade with a limited balance (budget)
+    def init_trading_balance(self, budget: float):
+        '''Whatever how many we have, we want to trade on a defined budget'''
         initial_binance_balance = self.client.balance_of(asset='USDT')
 
         if budget > initial_binance_balance:
             raise Exception("Budget cannot be greater that available funds.")
 
-        self.UNIT_SIZE = 0.01
         self.INITIAL_BALANCE = budget
         self.balance = budget
         self.BALANCE_DELTA = initial_binance_balance - budget
-        self.position_size = math.floor(self.balance / self.UNIT_SIZE)
-
-        # run a local zmq tcp service to send trading logs
-        # these data could be plotted in real-time in a notebook
-        context = zmq.Context()
-        socket = context.socket(zmq.PUB)
-        socket.bind('tcp://0.0.0.0:5555')
-        self.socket = socket
-
-        if self.verbose:
-            print(f"Bot initialized with {budget} USDT")
 
     def run(self):
+        '''Listen the binance websocket'''
         ws = websocket.WebSocketApp(
             self.WS_URL,
             on_open=self.__on_open,
@@ -54,17 +48,32 @@ class OnlineTradingBot(object):
         )
         ws.run_forever()
 
+    def open_logs_file(self):
+        '''Create a trading logs file'''
+        logs_filename = f"trading-logs.csv"
+        self.logs_filename = f"{dirname(__file__)}/logs/{logs_filename}"
+        open(self.logs_filename, "w", newline='')
+
+    def open_logs_ws_connection(self):
+        '''Open a websocket to send trading logs in real-time'''
+        context = zmq.Context()
+        socket = context.socket(zmq.PUB)
+        socket.bind('tcp://0.0.0.0:5555')
+        self.socket = socket
+
     def __on_open(self, ws):
+        '''Handled when binance websocket connection is open'''
         if self.verbose:
-            mode = "testnet" if self.testnet else "mainnet"
-            print(f"Connection established (mode: {mode})")
+            print(f"Connection established")
 
     def __on_close(self, ws, code, msg):
+        '''Handled when binance websocket connection is closed'''
         if self.verbose:
             print(f"Connection closed, close position by selling out if needed.")
         self.sell_order()
 
     def __on_message(self, ws, message):
+        '''Handled when binance websocket connection receive tick'''
         data = json.loads(message)
         datetime = dt.datetime.fromtimestamp(int(int(data['E']) / 1000))
         price = float(data['k']['c'])
@@ -72,6 +81,7 @@ class OnlineTradingBot(object):
         self.__on_data(datetime, price, is_candle_closed)
 
     def new_log(self, datetime: dt.datetime, price: float):
+        '''Create base logs object'''
         return {
             "timestamp": int(datetime.timestamp()),
             "raw": {
@@ -82,6 +92,7 @@ class OnlineTradingBot(object):
         }
 
     def buy_order(self):
+        '''Buy and update strategy state'''
         self.client.buy(self.position_size)
         self.position = 1
         self.trade_count += 1
@@ -89,6 +100,7 @@ class OnlineTradingBot(object):
             print(f"Buy {self.position_size} BTC")
 
     def sell_order(self):
+        '''Sell and update strategy state'''
         self.client.sell(self.position_size)
         self.position = 0
         self.trade_count += 1
@@ -96,6 +108,8 @@ class OnlineTradingBot(object):
             print(f"Sell {self.position_size} BTC")
 
     def __on_data(self, datetime: dt.datetime, price: float, is_candle_closed: bool):
+        '''Handled by `on_message` when we receive new tick. 
+        This is here we have implemented the trading strategy'''
         if self.verbose:
             print(datetime, price)
 
@@ -114,7 +128,7 @@ class OnlineTradingBot(object):
             dr['momentum'] = dr['return'].rolling(self.momentum).mean()
 
             # trade
-            if len(dr) > self.min_length:
+            if len(dr) > self.momentum + 1:
                 if np.sign(dr['momentum'].iloc[-2]) > 0 and self.position == 0:
                     self.update_position_size(price)
                     self.buy_order()
@@ -130,6 +144,8 @@ class OnlineTradingBot(object):
 
         # send logs
         self.socket.send_string(f"LOGS:{json.dumps(log)}")
+        log = pd.DataFrame(log["raw"], index=[datetime])
+        log.to_csv(self.logs_filename, header=False, mode='a')
 
     def update_balance(self, price: float):
         '''Calculate and save the theoretical balance integrating PnL'''
