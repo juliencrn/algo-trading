@@ -11,9 +11,10 @@ from BinanceClient import BinanceClient
 
 class OnlineTradingBot(object):
 
-    def __init__(self, budget: int = 1_000, momentum: int = 1, testnet=True, verbose=True):
+    def __init__(self, budget: int = 1_000, reserve: int = 50, momentum: int = 1, testnet=True, verbose=True):
         self.data = pd.DataFrame()
         self.momentum = momentum
+        self.reserve = reserve
         self.position: int = 0
         self.min_length = momentum + 1
         self.trade_count = 0
@@ -22,7 +23,7 @@ class OnlineTradingBot(object):
         self.WS_URL = 'wss://stream.binance.us:9443/ws/btcusdt@kline_1m'
         self.client = BinanceClient("BTCUSDT", testnet=testnet)
 
-        # even if we have S1M usdt, we want to trade with a budget (balance)
+        # even if we have S1M usdt, we want to trade with a limited balance (budget)
         initial_binance_balance = self.client.balance_of(asset='USDT')
 
         if budget > initial_binance_balance:
@@ -44,12 +45,6 @@ class OnlineTradingBot(object):
         if self.verbose:
             print(f"Bot initialized with {budget} USDT")
 
-    def close_position(self):
-        if self.position > 0:
-            self.client.sell(self.position_size)
-            self.position = 0
-            self.trade_count += 1
-
     def run(self):
         ws = websocket.WebSocketApp(
             self.WS_URL,
@@ -66,8 +61,8 @@ class OnlineTradingBot(object):
 
     def __on_close(self, ws, code, msg):
         if self.verbose:
-            print(f"Connection closed, close position by selling out.")
-        self.close_position()
+            print(f"Connection closed, close position by selling out if needed.")
+        self.sell_order()
 
     def __on_message(self, ws, message):
         data = json.loads(message)
@@ -76,16 +71,8 @@ class OnlineTradingBot(object):
         is_candle_closed = bool(data['k']['x'])
         self.__on_data(datetime, price, is_candle_closed)
 
-    def __on_data(self, datetime: dt.datetime, price: float, is_candle_closed: bool):
-        if self.verbose:
-            print("New tick:", datetime, price)
-        # create & append new candle to self.data
-        candle = pd.DataFrame({"price": price}, index=[datetime])
-        candle.index.name = 'Date'
-        self.data = pd.concat([self.data, candle])
-
-        # prepare logs
-        log = {
+    def new_log(self, datetime: dt.datetime, price: float):
+        return {
             "timestamp": int(datetime.timestamp()),
             "raw": {
                 "price": price,
@@ -94,51 +81,48 @@ class OnlineTradingBot(object):
             }
         }
 
+    def buy_order(self):
+        self.client.buy(self.position_size)
+        self.position = 1
+        self.trade_count += 1
+        if self.verbose:
+            print(f"Buy {self.position_size} BTC")
+
+    def sell_order(self):
+        self.client.sell(self.position_size)
+        self.position = 0
+        self.trade_count += 1
+        if self.verbose:
+            print(f"Sell {self.position_size} BTC")
+
+    def __on_data(self, datetime: dt.datetime, price: float, is_candle_closed: bool):
+        if self.verbose:
+            print(datetime, price)
+
+        # create & append new candle to self.data
+        candle = pd.DataFrame({"price": price}, index=[datetime])
+        candle.index.name = 'Date'
+        self.data = pd.concat([self.data, candle])
+
+        # prepare logs
+        log = self.new_log(datetime, price)
+
         if is_candle_closed:
             # Calc mandatory technical indicator to be able to trade
             dr = self.data.resample(pd.Timedelta(1, 'm'), label='right').last()
             dr['return'] = np.log(dr['price'] / dr['price'].shift(1))
             dr['momentum'] = dr['return'].rolling(self.momentum).mean()
 
-            print("is close")
-            print(self.position, self.position_size,
-                  self.position_size * price)
-
             # trade
             if len(dr) > self.min_length:
                 if np.sign(dr['momentum'].iloc[-2]) > 0 and self.position == 0:
-                    print("buy signal")
-                    precision = 10_000
-                    reserve = 100
-                    available_balance = self.balance - reserve
-                    self.position_size = math.floor(
-                        available_balance / price * precision)/precision
-
-                    print(f"Position size: {self.position_size}")
-                    self.client.buy(self.position_size)
-                    self.position = 1
-                    self.trade_count += 1
-                    if self.verbose:
-                        print(f"Buy {self.position_size} BTC")
+                    self.update_position_size(price)
+                    self.buy_order()
 
                 elif np.sign(dr['momentum'].iloc[-2]) < 0 and self.position == 1:
-                    print("sell signal")
-                    self.client.sell(self.position_size)
-                    self.position = 0
-                    self.trade_count += 1
-                    if self.verbose:
-                        print(f"Sell {self.position_size} BTC")
+                    self.sell_order()
 
-            print("after trade")
-
-            # update class balance
-            # - from real wallet current balance
-            # - including current position value (aka: un-realized profit/loss)
-            wallet_balance = self.client.balance_of("USDT")
-            position_value = self.position * self.position_size * price
-            self.balance = wallet_balance - self.BALANCE_DELTA + position_value
-
-            print("new balance", self.balance)
+            self.update_balance(price)
 
             # update log if there was a trade
             log["raw"]['position'] = self.position
@@ -146,6 +130,22 @@ class OnlineTradingBot(object):
 
         # send logs
         self.socket.send_string(f"LOGS:{json.dumps(log)}")
+
+    def update_balance(self, price: float):
+        '''Calculate and save the theoretical balance integrating PnL'''
+        old_balance = self.balance
+        account = self.client.balance_of("USDT")
+        pnl = self.position * self.position_size * price
+        self.balance = (account - self.BALANCE_DELTA) + pnl
+
+        if self.verbose and old_balance != self.balance:
+            print(f"Updated balance: {self.balance}")
+
+    def update_position_size(self, price: float):
+        '''Calculate how many BTC I could buy with my current balance'''
+        p = 10_000  # digit precision
+        free_balance = self.balance - self.reserve
+        self.position_size = math.floor(free_balance / price * p) / p
 
     def print_balances(self):
         usdt = self.client.balance_of(asset='USDT')
